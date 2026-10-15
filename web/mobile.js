@@ -15,8 +15,8 @@ export function wantsMobile(search, coarse) {
 
 export function configureMobile(env, search) {
   const query = new URLSearchParams(search);
-  // Session overrides only. A user's explicit URL or hosting-page value wins.
-  for (const [name, value] of Object.entries({ renderscale: '0.65', farclip: '150', worlddetail: '0' })) {
+  // Aggressive low-memory defaults for iOS Safari. Higher values crash the process during WebGPU/WASM init.
+  for (const [name, value] of Object.entries({ renderscale: '0.4', farclip: '100', worlddetail: '0' })) {
     if (!(name in env) && ![...query.keys()].some(key => key.toLowerCase() === name)) env[name] = value;
   }
   return env;
