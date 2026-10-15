@@ -175,3 +175,15 @@ test('runtime build branch is pinned to its own immutable commit', async () => {
   assert.equal(r.status, 200);
   assert.equal(await r.text(), 'runtime');
 });
+
+
+test('generated wasm-bindgen helpers come from the same runtime commit', async () => {
+  const runtime='b'.repeat(40);
+  mockFetch(async (url) => {
+    assert.equal(url, `https://raw.githubusercontent.com/WGLewis0721/azeroth-survivors-re/${runtime}/snippets/benilla-app-123/inline0.js`);
+    return new Response('export function begin() {}');
+  });
+  const r=await worker.fetch(authenticated('/snippets/benilla-app-123/inline0.js'),{...env,RUNTIME_COMMIT:runtime});
+  assert.equal(r.status,200);
+  assert.equal(r.headers.get('Content-Type'),'text/javascript; charset=utf-8');
+});

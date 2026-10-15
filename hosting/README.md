@@ -9,7 +9,7 @@ Required Worker bindings:
 
 - `SOURCE_COMMIT`: full commit SHA in this repository containing the mobile page files.
 - `RUNTIME_COMMIT`: full SHA of the separate `iphone-runtime` build branch containing
-  `wenilla.js` and `wenilla_bg.wasm.gz`, generated together by the Cargo.lock-pinned wasm-bindgen.
+  `wenilla.js`, `wenilla_bg.wasm.gz` and the generated `snippets/` directory, built together by the Cargo.lock-pinned wasm-bindgen.
   Alternatively, `RELEASE_TAG` can name a GitHub release with those same files.
 - `PLAY_KEY_HASH`: secret binding containing the SHA-256 hex digest of a random play key.
 
@@ -32,7 +32,7 @@ this is a personal preview rather than an independent distribution of WoW data.
 
 To create runtime release files, use the existing `scripts/web-build.sh` and gzip the
 resulting `web/dist/wenilla_bg.wasm` into `wenilla_bg.wasm.gz`. Publish that file and
-`web/dist/wenilla.js` on a separate runtime branch and pin its full commit SHA, or upload them
+`web/dist/wenilla.js` and `web/dist/snippets/` on a separate runtime branch and pin its full commit SHA, or upload them
 to the configured release. Deploy the module with today's compatibility
 date and the bindings above, then enable its workers.dev subdomain. Keep compiled files off the source branch. Never commit game data or credentials. JavaScript/MIME types, gzip bytes and response streaming are
 handled by the gateway; browser data requests are cached privately while client files

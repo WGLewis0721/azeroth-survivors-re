@@ -62,6 +62,9 @@ function route(path, env) {
   if (path === '/' || path === '/index.html') return { url: raw + 'index.html', type: 'text/html; charset=utf-8', html: true };
   const name = path.slice(1);
   if (ASSETS.has(name)) return { url: raw + name, type: ASSETS.get(name) };
+  if (/^\/snippets\/[A-Za-z0-9_-]+\/inline[0-9]+\.js$/.test(path) && /^[a-f\d]{40}$/i.test(env.RUNTIME_COMMIT ?? '')) {
+    return { url: `https://raw.githubusercontent.com/${REPOSITORY}/${env.RUNTIME_COMMIT}${path}`, type: 'text/javascript; charset=utf-8' };
+  }
   if (path === '/wenilla.js' || path === '/wenilla_bg.wasm') {
     const wasm = path.endsWith('.wasm');
     const file = wasm ? 'wenilla_bg.wasm.gz' : 'wenilla.js';
