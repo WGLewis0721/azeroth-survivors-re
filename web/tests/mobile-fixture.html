@@ -1,0 +1,11 @@
+<!doctype html>
+<meta charset="utf-8">
+<meta name="viewport" content="width=device-width,initial-scale=1,viewport-fit=cover">
+<title>Mobile interface test fixture — no game engine</title>
+<link rel="stylesheet" href="../mobile.css">
+<style>html,body{margin:0;height:100%;background:#080809}canvas{width:100%;height:100%}</style>
+<canvas id="benilla"></canvas>
+<script type="module">
+  import { mountMobile } from '../mobile.js';
+  window.mobile = mountMobile();
+</script>

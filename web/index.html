@@ -1,5 +1,12 @@
 <!doctype html>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, viewport-fit=cover">
+<meta name="theme-color" content="#12120f">
+<meta name="apple-mobile-web-app-capable" content="yes">
+<meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+<link rel="manifest" href="manifest.webmanifest">
+<link rel="apple-touch-icon" sizes="180x180" href="icon-180.png">
+<link rel="stylesheet" href="mobile.css">
 <title>Azeroth Survivors</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <style>
@@ -66,7 +73,9 @@
   window.__wenilla_env = { dev_query_creds: '1' };
 </script>
 <script type="module">
+  import { mountMobile } from './mobile.js';
   import init from './wenilla.js';
+  mountMobile();
   import { bind } from './wasi_stubs.js';
   import { boot } from './boot.js';
   // `boot(init)` is the loading overlay + parallel data prefetch (see boot.js's header); it calls
@@ -85,13 +94,26 @@
   // out, commands in, the hidden-tab keepalive. Dynamic, never load-bearing. `?bridge=hud` /
   // `?bridge=idle` mount an example from web/examples/ on top; `?bridge=0` turns it off.
   import('./bridge.js')
-    .then(() => {
+    .then(({ default: bridge }) => {
+      if (window.__survivorsMobileInput?.active) {
+        bridge.background.hz = 0;
+        bridge.background.stop();
+      }
       const example = new URLSearchParams(location.search).get('bridge');
       if (example && /^[a-z]+$/.test(example) && example !== '0') {
         import(`./examples/${example}.js`).catch((e) => console.warn(`examples/${example}.js:`, e));
       }
     })
     .catch((e) => console.warn('bridge.js:', e));
+  // Safari on iOS 26+ exposes WebGPU only in a secure context.
+  if (!navigator.gpu) {
+    const message = document.createElement('div');
+    message.style.cssText = 'position:fixed;inset:0;z-index:100;background:#12120f;color:#f7f3e9;padding:max(28px,env(safe-area-inset-top)) 24px;font:17px/1.6 system-ui;display:grid;place-content:center';
+    message.textContent = 'Azeroth Survivors needs WebGPU. On iPhone, use Safari on iOS 26 or later and open this game over HTTPS. Localhost also works on the same device.';
+    message.setAttribute('role', 'alert');
+    document.body.append(message);
+    throw new Error('WebGPU unavailable');
+  }
   const w = await boot(init);
   bind(w.memory);
 </script>

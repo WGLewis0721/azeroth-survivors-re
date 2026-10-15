@@ -182,13 +182,17 @@ pub(super) fn cast_mobility(
     selection: Res<super::Selection>,
     aim: Res<hero::AimPoint>,
     mut fx: Fx,
+    #[cfg(target_arch = "wasm32")] mobile: Res<super::mobile::Input>,
 ) {
     let dt = time.delta_secs();
     let m = &mut run.mobile;
     m.cd = (m.cd - dt).max(0.0);
     m.haste_t = (m.haste_t - dt).max(0.0);
     m.vanish_t = (m.vanish_t - dt).max(0.0);
-    if *phase.get() != Phase::Playing || run.dead_t.is_some() || !keys.just_pressed(KEY) {
+    let cast = keys.just_pressed(KEY);
+    #[cfg(target_arch = "wasm32")]
+    let cast = cast || (mobile.active && mobile.mobility);
+    if *phase.get() != Phase::Playing || run.dead_t.is_some() || !cast {
         return;
     }
     let Some(def) = run.mobility() else { return };

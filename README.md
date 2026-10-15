@@ -68,6 +68,41 @@ make start     # → open http://127.0.0.1:8090/
 
 Run `make` (or `make help`) to list every target.
 
+## iPhone and one-handed play
+
+The browser build includes a portrait touch interface. It activates automatically on touch
+screens; `?mobile=1` forces it on and `?mobile=0` restores the desktop interface. This is a
+mobile web app using the original Rust/WASM game, not an App Store binary.
+
+- Use **Safari on iOS 26 or later**, over **HTTPS**. The 3D renderer requires WebGPU; older
+  iOS versions cannot run the world through WebGL2.
+- Drag the bottom thumbstick to move; small drags move more slowly. Release to stop.
+  Spells attack automatically. Your hero aims along the last movement direction.
+- From level 5, tap the class escape button beside the stick. The cooldown appears on it.
+- Class, appearance, battleground, upgrades, pause and results use touch-sized menus.
+  Choose **Left-handed** in any menu to mirror the controls; the choice is remembered.
+- Switching apps or losing focus releases movement and pauses combat. Tap **Return to
+  battle** after returning. Safari Share → **Add to Home Screen** launches a standalone
+  portrait experience. Safari itself may still rotate when running in a browser tab.
+
+The mobile session defaults to `renderScale=0.65`, `farclip=150` and `worlddetail=0`, and
+uses a wider fixed camera view. Explicit URL settings override these session defaults,
+for example `?mobile=1&renderScale=0.8`. These are initial budgets, not measured iPhone
+frame-rate guarantees. Game files and the WASM client still need the normal build and host;
+the home-screen manifest does not cache game data for offline use.
+
+Build with `make build` and run with `make start` as above. For an iPhone, put the host behind
+a private HTTPS front accessible to that phone; `localhost` on the phone means the phone
+itself. Keep the host and your supplied game data private as described in [web/README.md](web/README.md).
+
+Touch UI verification, without game data:
+
+```bash
+node --test web/tests/*.test.mjs
+# Python Playwright and /usr/bin/chromium required; tests the UI bridge fixture, not combat:
+python web/tests/mobile-browser.py
+```
+
 ## Controls
 
 See [CONTROLS.md](CONTROLS.md). The short version: **WASD** to move, **Space** to jump, **F**

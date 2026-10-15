@@ -1,0 +1,56 @@
+.survivors-mobile { color-scheme: dark; background: #080809; }
+.survivors-mobile body { position: fixed; inset: 0; width: 100%; height: 100%; overscroll-behavior: none; }
+.survivors-mobile #benilla { width: 100%; height: 100%; touch-action: none; }
+#mobile-ui { --gold: #e3bc72; --edge: #665131; --ink: #12120f; position: fixed; inset: 0; z-index: 18; pointer-events: none; color: #f7f3e9; font: 15px/1.4 -apple-system, BlinkMacSystemFont, 'Segoe UI', sans-serif; -webkit-user-select: none; user-select: none; }
+#mobile-ui [hidden] { display: none !important; }
+#mobile-ui button, #mobile-ui select { box-sizing: border-box; min-height: 48px; border: 1px solid var(--edge); border-radius: 4px; background: #1b1b17; color: #f7f3e9; font: inherit; padding: 10px 14px; touch-action: manipulation; cursor: pointer; }
+#mobile-ui button:disabled { opacity: .55; cursor: default; }
+#mobile-ui :focus-visible { outline: 3px solid #fff; outline-offset: 3px; }
+#mobile-ui button:active:not(:disabled) { background: #443a25; }
+#mobile-ui .m-primary { background: #5b3818; border-color: var(--gold); color: #ffe5ac; font-weight: 650; width: 100%; min-height: 54px; }
+.m-sheet { pointer-events: auto; position: absolute; bottom: 0; left: 0; right: 0; box-sizing: border-box; max-height: calc(100% - env(safe-area-inset-top) - 20px); overflow: auto; overscroll-behavior: contain; -webkit-overflow-scrolling: touch; padding: 20px max(20px, env(safe-area-inset-right)) max(20px, env(safe-area-inset-bottom)) max(20px, env(safe-area-inset-left)); background: linear-gradient(#171711f5, #0b0c0afa); border-top: 1px solid var(--edge); }
+.m-heading { display: flex; gap: 10px; align-items: center; }
+.m-eyebrow { font-size: 11px; letter-spacing: .16em; font-weight: 700; color: var(--gold); }
+#mobile-ui h1 { font-family: Georgia, 'Times New Roman', serif; font-size: clamp(25px, 7vw, 34px); font-weight: 500; line-height: 1.12; margin: 14px 0 8px; text-wrap: balance; }
+.m-subtitle { color: #bcbcaf; margin: 0 0 20px; }
+.m-menu { display: grid; gap: 12px; }
+.m-menu label { color: #c9c3b5; font-size: 12px; display: grid; gap: 5px; }
+#mobile-ui select { width: 100%; font-size: 16px; }
+.m-instructions, .m-help { font-size: 13px; line-height: 1.6; color: #bcbcaf; margin: 2px 0 8px; }
+.m-settings { display: flex; justify-content: space-between; gap: 8px; margin-top: 12px; }
+#mobile-ui .m-settings button { background: transparent; border-color: transparent; font-size: 13px; color: #ccc6b7; padding: 8px 0; }
+.m-pause, .m-results, .m-offers { display: grid; gap: 12px; }
+#mobile-ui .m-offer { display: grid; gap: 6px; padding: 16px; text-align: left; min-height: 96px; border-left: 3px solid var(--gold); }
+.m-offer strong { color: #f3d49b; font-size: 17px; }
+.m-offer span { font-size: 14px; }
+.m-offer small { font-size: 12px; color: #bcbcaf; white-space: pre-line; }
+.m-hud { position: absolute; inset: env(safe-area-inset-top) 0 auto; padding: 8px max(16px, env(safe-area-inset-right)) 16px max(16px, env(safe-area-inset-left)); background: linear-gradient(#000c, #0000); }
+.m-status { display: flex; align-items: center; justify-content: space-between; font-variant-numeric: tabular-nums; text-shadow: 0 1px 3px #000; }
+.m-status [data-level] { color: #f3d49b; font-size: 13px; }
+#mobile-ui .m-status button { pointer-events: auto; width: 48px; padding: 0; background: #13130dcc; font-size: 20px; }
+.m-hp { height: 18px; margin-top: 8px; background: #261b17df; border: 1px solid #a07547; position: relative; }
+.m-hp > span { display: block; height: 100%; background: #922e27; }
+.m-hp small { position: absolute; inset: 0; text-align: center; font-size: 11px; font-variant-numeric: tabular-nums; text-shadow: 0 1px 2px #000; }
+.m-xp { height: 3px; margin-top: 5px; background: #1f2330; }
+.m-xp span { display: block; height: 100%; background: #8b9eda; }
+.m-kills { margin-top: 6px; font-size: 12px; text-shadow: 0 1px 3px #000; }
+.m-controls { position: absolute; bottom: max(22px, env(safe-area-inset-bottom)); right: max(18px, env(safe-area-inset-right)); display: flex; align-items: center; gap: 16px; flex-direction: row-reverse; }
+.m-left .m-controls { right: auto; left: max(18px, env(safe-area-inset-left)); flex-direction: row; }
+.m-stick { width: 156px; height: 156px; position: relative; pointer-events: auto; touch-action: none; border-radius: 50%; background: #090c0c70; border: 1px solid #b69e6570; box-shadow: inset 0 0 0 9px #0002; }
+.m-stick-ring { position: absolute; inset: 22px; border-radius: 50%; border: 1px solid #c2b39338; }
+.m-stick-knob { position: absolute; left: 50%; top: 50%; width: 56px; height: 56px; border-radius: 50%; background: #35372cd9; border: 1px solid #c6b17c; transform: translate(-50%, -50%); box-shadow: 0 3px 12px #0005; }
+.m-stick small { position: absolute; bottom: 8px; width: 100%; text-align: center; font-size: 9px; letter-spacing: .2em; color: #dfd2b7; }
+.m-held .m-stick-knob { background: #6d603ed9; }
+#mobile-ui .m-escape { pointer-events: auto; width: 86px; height: 86px; padding: 6px; border-radius: 50%; background: #191b13d9; display: flex; flex-direction: column; justify-content: center; align-items: center; line-height: 1.2; }
+.m-escape svg { color: var(--gold); }
+.m-escape span { font-size: 10px; max-width: 74px; }
+.m-escape small { color: #c8c3b5; font-size: 10px; margin-top: 3px; }
+.m-loading { position: absolute; top: 45%; left: 10%; right: 10%; text-align: center; padding: 14px; background: #10120eef; border: 1px solid var(--edge); }
+@media (max-height: 620px) { .m-sheet { padding-top: 14px; } .m-heading { display: none; } #mobile-ui h1 { font-size: 25px; margin-top: 0; } .m-subtitle { margin-bottom: 12px; } .m-menu { gap: 8px; } .m-instructions { display: none; } }
+@media (orientation: landscape) { .m-sheet { left: auto; width: min(420px, 58%); max-height: 100%; border-left: 1px solid var(--edge); } }
+
+.survivors-mobile #wenilla-boot .title { font-size: clamp(38px, 11vw, 70px); }
+.survivors-mobile #wenilla-boot .box { padding-top: env(safe-area-inset-top); padding-bottom: env(safe-area-inset-bottom); }
+@media (prefers-reduced-motion: reduce) { .survivors-mobile #wenilla-boot .embers { display: none; } }
+
+.m-banner { text-align: center; color: #f3d49b; font-size: 16px; text-shadow: 0 2px 4px #000; }

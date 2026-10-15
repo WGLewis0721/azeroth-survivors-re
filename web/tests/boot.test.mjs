@@ -15,7 +15,7 @@ const deferred = () => {
 function setup(t, fetch) {
   const children = new Map();
   const element = () => ({
-    style: {}, classList: { add() {} }, remove() {},
+    style: { setProperty() {} }, classList: { add() {} }, remove() {}, appendChild() {},
     querySelector(selector) {
       if (!children.has(selector)) children.set(selector, element());
       return children.get(selector);
@@ -25,6 +25,7 @@ function setup(t, fetch) {
     fetch, location: { search: '' }, window: {},
     document: { createElement: element, body: { appendChild() {} } },
     setTimeout: () => 0, clearTimeout: () => {},
+    setInterval: () => 0, clearInterval: () => {},
   })) {
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, key);
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
