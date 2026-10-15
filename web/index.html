@@ -70,7 +70,7 @@
         for (const e of errs) {
           console.error(`WGSL error in ${desc.label || '(unlabeled)'} @${e.lineNum}:${e.linePos}: ${e.message}\n    ${lines[e.lineNum - 1] || ''}`);
         }
-      });
+      }).catch((error) => console.warn('Shader diagnostic unavailable:', error?.message ?? error));
       return m;
     };
   }
