@@ -1,6 +1,7 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import { readFile } from 'node:fs/promises';
+import vm from 'node:vm';
 const source = await readFile(new URL('../mobile.js', import.meta.url), 'utf8');
 const { stickVector, wantsMobile, configureMobile } = await import('data:text/javascript;base64,' + Buffer.from(source).toString('base64'));
 
@@ -33,4 +34,57 @@ test('packaging includes all mobile runtime files and portrait manifest', async 
   const manifest = JSON.parse(await readFile(new URL('../manifest.webmanifest', import.meta.url), 'utf8'));
   assert.equal(manifest.orientation, 'portrait-primary');
   assert.equal(manifest.display, 'standalone');
+});
+
+const page = await readFile(new URL('../index.html', import.meta.url), 'utf8');
+const shaderHook = [...page.matchAll(/<script>([\s\S]*?)<\/script>/g)]
+  .map(match => match[1]).find(script => script.includes('createShaderModule'));
+
+function installShaderHook(createShaderModule) {
+  const warnings = [], errors = [];
+  class GPUDevice {}
+  GPUDevice.prototype.createShaderModule = createShaderModule;
+  vm.runInNewContext(shaderHook, {
+    navigator: { gpu: {} }, window: { GPUDevice }, GPUDevice,
+    console: { warn: (...args) => warnings.push(args), error: (...args) => errors.push(args) },
+  });
+  return { device: new GPUDevice(), warnings, errors };
+}
+
+test('missing shader diagnostics still returns the original shader module', () => {
+  const module = {};
+  const { device } = installShaderHook(() => module);
+  assert.equal(device.createShaderModule({ code: '' }), module);
+});
+
+for (const failure of ['throw', 'reject']) {
+  test(`optional shader diagnostics cannot break startup (${failure})`, async () => {
+    const module = {
+      getCompilationInfo() {
+        if (failure === 'throw') throw new Error('diagnostics unsupported');
+        return Promise.reject(new Error('diagnostics unsupported'));
+      },
+    };
+    const { device, warnings } = installShaderHook(() => module);
+    assert.equal(device.createShaderModule({ code: '' }), module);
+    await new Promise(resolve => setImmediate(resolve));
+    assert.equal(warnings.length, 1);
+    assert.match(warnings[0][1], /diagnostics unsupported/);
+  });
+}
+
+test('shader diagnostics still reports compilation errors', async () => {
+  const module = { getCompilationInfo: async () => ({
+    messages: [{ type: 'error', lineNum: 1, linePos: 2, message: 'invalid shader' }],
+  }) };
+  const { device, errors } = installShaderHook(() => module);
+  assert.equal(device.createShaderModule({ label: 'terrain', code: 'bad code' }), module);
+  await new Promise(resolve => setImmediate(resolve));
+  assert.equal(errors.length, 1);
+  assert.match(errors[0][0], /terrain @1:2: invalid shader\n    bad code/);
+});
+
+test('actual shader creation failures are not swallowed by diagnostics', () => {
+  const { device } = installShaderHook(() => { throw new Error('device lost'); });
+  assert.throws(() => device.createShaderModule({ code: '' }), /device lost/);
 });

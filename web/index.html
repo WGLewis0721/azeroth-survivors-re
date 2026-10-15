@@ -63,7 +63,9 @@
     const orig = GPUDevice.prototype.createShaderModule;
     GPUDevice.prototype.createShaderModule = function (desc) {
       const m = orig.call(this, desc);
-      m.getCompilationInfo().then((info) => {
+      // Diagnostics are optional, including on browsers that expose only part of WebGPU.
+      if (typeof m.getCompilationInfo !== 'function') return m;
+      Promise.resolve().then(() => m.getCompilationInfo()).then((info) => {
         const errs = info.messages.filter((x) => x.type === 'error');
         if (!errs.length) return;
         const lines = (desc.code || '').split('\n');
