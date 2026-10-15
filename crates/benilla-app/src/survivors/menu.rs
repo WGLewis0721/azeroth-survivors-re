@@ -64,7 +64,7 @@ fn pick_path() -> Option<std::path::PathBuf> {
     crate::local_state::home().map(|h| h.join("survivors-pick.txt"))
 }
 
-fn save_pick(sel: &Selection) {
+pub(super) fn save_pick(sel: &Selection) {
     let (Some(class), Some(&(_, race, sex))) = (sel.class, sel.look.and_then(|i| sel.looks.get(i)))
     else {
         return;

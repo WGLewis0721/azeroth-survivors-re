@@ -23,3 +23,11 @@
 The camera follows the hero, locked top-down by default (laptop-friendly). **C** unlocks it so a
 mouse drag swings and tilts it; **C** again snaps it back. In the menu it slowly orbits the
 preview hero. Your race, gender, class and zone are remembered across reloads.
+
+## Touch / iPhone
+
+The touch interface uses a bottom thumbstick for analog movement and automatic attacks.
+Tap the escape button beside it at level 5 or later; it aims in your last travel direction.
+Tap the pause button at the top to pause. Upgrade choices and hero selection are touch menus.
+Use Left-handed in a menu to mirror the controls. Leaving the page releases movement and
+pauses; returning requires an explicit resume. See the README for Safari/WebGPU requirements.

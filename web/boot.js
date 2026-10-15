@@ -262,9 +262,13 @@ function createBootUi() {
     'Your spells cast themselves. Your only job is to not die.',
     'Gems pull toward you once you are close. Greed gets heroes killed.',
     'A boss arrives every couple of minutes. You will hear about it.',
-    'From level 5, F casts your class\u2019s escape. Blink, Charge, Sprint\u2026',
+    window.__survivorsMobileInput?.active
+      ? 'From level 5, tap your escape beside the thumbstick. Blink, Charge, Sprint…'
+      : 'From level 5, F casts your class\u2019s escape. Blink, Charge, Sprint\u2026',
     'Rare and Epic cards are worth more than they look. Legendary always is.',
-    'Press C to unlock the camera and swing it around with the mouse.',
+    window.__survivorsMobileInput?.active
+      ? 'Drag gently for a slower step. Release the thumbstick to stop.'
+      : 'Press C to unlock the camera and swing it around with the mouse.',
   ];
   const tipEl = root.querySelector('.tip');
   let tipN = Math.floor(Math.random() * tips.length);

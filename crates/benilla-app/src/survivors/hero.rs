@@ -153,6 +153,10 @@ pub(super) fn aim_cursor(
     world: WorldPoint,
     mut aim: ResMut<AimPoint>,
 ) {
+    #[cfg(target_arch = "wasm32")]
+    if super::mobile::active() {
+        return;
+    }
     let point = (|| {
         let cursor = windows.single().ok()?.cursor_position()?;
         let (cam, tf) = cams.single().ok()?;
@@ -195,6 +199,7 @@ pub(super) fn drive_hero(
     aim: Res<AimPoint>,
     world: WorldPoint,
     auto: Option<Res<super::auto::Auto>>,
+    #[cfg(target_arch = "wasm32")] mobile: Res<super::mobile::Input>,
     mut player: ResMut<crate::player::Player>,
     mut hero: Query<(&mut Transform, &mut MovementState, &mut Hero)>,
 ) {
@@ -226,6 +231,10 @@ pub(super) fn drive_hero(
                     dir = Vec3::new(dir.x * cy + dir.z * sy, 0.0, dir.z * cy - dir.x * sy);
                 }
             }
+            #[cfg(target_arch = "wasm32")]
+            if mobile.active && *phase.get() == Phase::Playing && run.dead_t.is_none() {
+                dir = mobile.direction;
+            }
             let mut pos = tf.translation;
             // Locked, the hero faces the cursor and WASD moves him under it, so he backpedals and
             // strafes as a player does; unlocked (or driven), he faces where he runs.
@@ -242,8 +251,16 @@ pub(super) fn drive_hero(
                 tf.rotation = tf.rotation.slerp(target, (dt * 20.0).min(1.0));
             }
             if dir != Vec3::ZERO && dt > 0.0 {
+                #[cfg(target_arch = "wasm32")]
+                let magnitude = if mobile.active {
+                    dir.length().min(1.0)
+                } else {
+                    1.0
+                };
                 let dir = dir.normalize();
                 let speed = run.stats().speed * run.haste_mult();
+                #[cfg(target_arch = "wasm32")]
+                let speed = speed * magnitude;
                 pos += dir * speed * dt;
                 mv.speed = speed;
                 mv.flags = match face {
@@ -272,7 +289,10 @@ pub(super) fn drive_hero(
             let ground = world.terrain_height_under(pos).unwrap_or(pos.y);
             let playing = *phase.get() == Phase::Playing && run.dead_t.is_none();
             // Space hops: lift off the terrain, then gravity brings the hero back down.
-            if playing && keys.just_pressed(KeyCode::Space) && hm.vy == 0.0 && hm.air == 0.0 {
+            let jump = keys.just_pressed(KeyCode::Space);
+            #[cfg(target_arch = "wasm32")]
+            let jump = jump || (mobile.active && mobile.jump);
+            if playing && jump && hm.vy == 0.0 && hm.air == 0.0 {
                 hm.vy = JUMP_SPEED;
             }
             if playing && (hm.vy != 0.0 || hm.air > 0.0) {
@@ -350,6 +370,13 @@ pub(super) fn place_camera(
             MouseScrollUnit::Pixel => w.y * 0.02,
         };
         rig.dist = (rig.dist * (1.0 - 0.12 * notches).clamp(0.5, 1.5)).clamp(ZOOM_MIN, ZOOM_MAX);
+    }
+    #[cfg(target_arch = "wasm32")]
+    if super::mobile::active() {
+        rig.mode = CamMode::Fixed;
+        rig.yaw = 0.0;
+        rig.pitch = FIXED_PITCH;
+        rig.dist = 45.0;
     }
     let (eye, look) = if *phase.get() == Phase::Menu {
         rig.orbit += time.delta_secs() * 0.2;
