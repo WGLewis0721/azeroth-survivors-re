@@ -49,9 +49,16 @@ try:
             assert page.evaluate('window.mobile.input.action') == 'selectMap'
             assert page.evaluate('window.mobile.input.index') == 11
             page.evaluate('window.__survivorsMobileState.sequence=window.mobile.input.sequence; window.mobile.render()')
+            # A menu preview may still be loading. Starting selects the destination;
+            # the Rust play systems continue waiting for terrain independently.
+            page.evaluate('window.__survivorsMobileState.loading=true; window.mobile.render()')
+            assert page.locator('[data-action="start"]').is_enabled()
             page.locator('[data-action="start"]').click()
             assert page.evaluate('window.mobile.input.action') == 'start'
             page.evaluate("window.__survivorsMobileState.phase='Playing'; window.__survivorsMobileState.sequence=window.mobile.input.sequence; window.mobile.render()")
+            assert page.locator('.m-loading').is_visible()
+            assert not page.locator('.m-controls').is_visible()
+            page.evaluate('window.__survivorsMobileState.loading=false; window.mobile.render()')
             assert page.locator('.m-controls').is_visible()
             assert page.locator('[data-time]').inner_text() == '02:05'
             stick = page.locator('.m-stick').bounding_box()

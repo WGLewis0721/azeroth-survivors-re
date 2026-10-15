@@ -253,8 +253,7 @@ fn read(
                 menu::save_pick(&selection);
             }
         }
-        ("start", Phase::Menu)
-            if !loading.covering() && input.allowed_maps.contains(&selection.map) =>
+        ("start", Phase::Menu) if input.allowed_maps.contains(&selection.map) =>
         {
             if hud::start_run(&mut run, &mut selection) {
                 next.set(Phase::Playing);

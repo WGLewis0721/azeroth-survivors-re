@@ -201,7 +201,8 @@ export function mountMobile() {
       options('[data-select="selectLook"]', state.looks ?? [], state.selectedLook, item => `${raceNames[item.race] ?? 'Hero'} · ${item.sex === 0 ? 'Male' : 'Female'}`);
       options('[data-select="selectMap"]', state.maps ?? [], state.selectedMap, item => item.name);
     }
-    $('[data-action="start"]').disabled = state.selectedClass == null || state.selectedLook == null || state.loading;
+    // Starting selects the destination; terrain readiness gates play, not the menu.
+    $('[data-action="start"]').disabled = state.selectedClass == null || state.selectedLook == null;
     const offerKey = JSON.stringify(state.offers);
     if (offerKey !== offersKey) {
       offersKey = offerKey;
