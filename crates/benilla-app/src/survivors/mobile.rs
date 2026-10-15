@@ -13,6 +13,8 @@ pub(super) struct Input {
     facing: Vec3,
     sequence: f64,
     last_pause_sequence: f64,
+    initialized: bool,
+    allowed_maps: Vec<usize>,
 }
 impl Default for Input {
     fn default() -> Self {
@@ -24,6 +26,8 @@ impl Default for Input {
             facing: Vec3::NEG_Z,
             sequence: -1.0,
             last_pause_sequence: 0.0,
+            initialized: false,
+            allowed_maps: Vec::new(),
         }
     }
 }
@@ -52,7 +56,91 @@ pub(super) fn plugin(app: &mut App) {
             read.before(hero::aim_cursor)
                 .in_set(benilla_world::schedule::WorldStage::Input),
         )
+        .add_systems(
+            Update,
+            initialize
+                .after(menu::restore_pick)
+                .before(menu::build_menu),
+        )
         .add_systems(Update, (hide_ui, publish).chain().after(hud::show_panels));
+}
+/// Restore the ordinary saved pick first, then constrain it to this host's available terrain.
+fn initialize(
+    mut input: ResMut<Input>,
+    mut selection: ResMut<Selection>,
+    creatures: Option<Res<crate::entities::Creatures>>,
+) {
+    if input.initialized || !input.active {
+        return;
+    }
+    let Some(creatures) = creatures.as_deref() else {
+        return;
+    };
+    let value = source();
+    let configured = get(&value, "allowedMaps");
+    input.allowed_maps = if Array::is_array(&configured) {
+        let names = Array::from(&configured);
+        data::MAPS
+            .iter()
+            .enumerate()
+            .filter(|(_, map)| {
+                names
+                    .iter()
+                    .any(|name| name.as_string().as_deref() == Some(map.name))
+            })
+            .map(|(index, _)| index)
+            .collect()
+    } else {
+        (0..data::MAPS.len()).collect()
+    };
+    let saved_map = selection.version > 0 && input.allowed_maps.contains(&selection.map);
+    let mut changed = false;
+    if !saved_map {
+        let start = get(&value, "startMap")
+            .as_string()
+            .or_else(|| Array::is_array(&configured).then(|| "Elwynn Forest".to_owned()));
+        let map = input
+            .allowed_maps
+            .iter()
+            .copied()
+            .find(|&index| start.as_deref() == Some(data::MAPS[index].name))
+            .or_else(|| {
+                input
+                    .allowed_maps
+                    .iter()
+                    .copied()
+                    .find(|&index| index == selection.map)
+            })
+            .or_else(|| input.allowed_maps.first().copied());
+        if let Some(map) = map {
+            if selection.map != map || selection.stage != map {
+                selection.map = map;
+                selection.stage = map;
+                changed = true;
+            }
+        }
+    }
+    if selection.class.is_none() {
+        for (index, class) in data::CLASSES.iter().enumerate() {
+            let looks = hud::looks_for(class, creatures);
+            if !looks.is_empty() {
+                selection.class = Some(index);
+                selection.looks = looks;
+                selection.look = Some(0);
+                changed = true;
+                break;
+            }
+        }
+    }
+    // Creature metadata may arrive after the resource itself. Retry until a hero can be previewed.
+    if selection.class.is_none() {
+        return;
+    }
+    if changed {
+        selection.version += 1;
+        menu::save_pick(&selection);
+    }
+    input.initialized = true;
 }
 #[allow(clippy::too_many_arguments)]
 fn read(
@@ -98,6 +186,9 @@ fn read(
             .as_f64()
             .filter(|n| n.is_finite())
             .unwrap_or(input.sequence);
+        return;
+    }
+    if !input.initialized {
         return;
     }
     if !loading.covering() {
@@ -154,13 +245,17 @@ fn read(
             }
         }
         ("selectMap", Phase::Menu) => {
-            if let Some(i) = index.filter(|&i| i < data::MAPS.len()) {
+            if let Some(i) =
+                index.filter(|&i| i < data::MAPS.len() && input.allowed_maps.contains(&i))
+            {
                 selection.map = i;
                 selection.version += 1;
                 menu::save_pick(&selection);
             }
         }
-        ("start", Phase::Menu) if !loading.covering() => {
+        ("start", Phase::Menu)
+            if !loading.covering() && input.allowed_maps.contains(&selection.map) =>
+        {
             if hud::start_run(&mut run, &mut selection) {
                 next.set(Phase::Playing);
             }
@@ -225,9 +320,10 @@ fn publish(
     }
     set(&state, "classes", classes);
     let maps = Array::new();
-    for m in data::MAPS {
+    for &index in &input.allowed_maps {
         let o = Object::new();
-        set(&o, "name", m.name);
+        set(&o, "name", data::MAPS[index].name);
+        set(&o, "index", index as u32);
         maps.push(&o);
     }
     set(&state, "maps", maps);

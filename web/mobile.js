@@ -26,6 +26,7 @@ export function mountMobile() {
   if (!wantsMobile(location.search, matchMedia('(pointer: coarse)').matches)) return null;
   document.documentElement.classList.add('survivors-mobile');
   const input = window.__survivorsMobileInput = {
+    startMap: window.__survivorsHosting?.startMap, allowedMaps: window.__survivorsHosting?.allowedMaps,
     active: true, x: 0, y: 0, action: '', index: 0, sequence: 0, pauseSequence: 0, hidden: document.hidden,
   };
   window.__wenilla_env = configureMobile(window.__wenilla_env ?? {}, location.search);
@@ -155,7 +156,7 @@ export function mountMobile() {
     const select = $(selector);
     select.replaceChildren(...items.map((item, index) => {
       const option = document.createElement('option');
-      option.value = index; option.textContent = label(item); return option;
+      option.value = item.index ?? index; option.textContent = label(item); return option;
     }));
     select.value = selected ?? '';
   };

@@ -44,6 +44,11 @@ try:
             assert page.evaluate('window.mobile.input.index') == 6
             # The snapshot acknowledges receipt before another command is accepted.
             page.evaluate('window.__survivorsMobileState.sequence = window.mobile.input.sequence; window.mobile.render()')
+            page.evaluate("window.__survivorsMobileState.maps=[{name:'Elwynn Forest',index:5},{name:'Westfall',index:11}]; window.__survivorsMobileState.selectedMap=5; window.mobile.render()")
+            page.locator('[data-select="selectMap"]').select_option('11')
+            assert page.evaluate('window.mobile.input.action') == 'selectMap'
+            assert page.evaluate('window.mobile.input.index') == 11
+            page.evaluate('window.__survivorsMobileState.sequence=window.mobile.input.sequence; window.mobile.render()')
             page.locator('[data-action="start"]').click()
             assert page.evaluate('window.mobile.input.action') == 'start'
             page.evaluate("window.__survivorsMobileState.phase='Playing'; window.__survivorsMobileState.sequence=window.mobile.input.sequence; window.mobile.render()")

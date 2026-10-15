@@ -85,6 +85,12 @@
 <script type="module">
   import { mountMobile } from './mobile.js';
   import init from './wenilla.js';
+  // A private host can limit its picker to the terrain it supplies. Local hosts
+  // without this optional route keep the full game's selection.
+  try {
+    const config = await fetch('./play-config.json', { cache: 'no-store' });
+    if (config.ok) window.__survivorsHosting = await config.json();
+  } catch (error) { console.warn('Optional play configuration:', error); }
   mountMobile();
   import { bind } from './wasi_stubs.js';
   import { boot } from './boot.js';

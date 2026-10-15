@@ -76,13 +76,13 @@ function route(path, env) {
   return null;
 }
 async function handle(request, env) {
-  if (!validConfiguration(env)) return response('Play service is not configured.', 503);
+  if (!validConfiguration(env)) return response(request.method === 'HEAD' ? null : 'Play service is not configured.', 503);
   const url = new URL(request.url);
   if (url.pathname === '/session') {
-    if (request.method !== 'POST') return response('Method not allowed', 405, { Allow: 'POST' });
+    if (request.method !== 'POST') return response(request.method === 'HEAD' ? null : 'Method not allowed', 405, { Allow: 'POST' });
     const origin = request.headers.get('Origin');
     if (origin && origin !== url.origin) return response('Forbidden', 403);
-    if (!(request.headers.get('Content-Type') ?? '').toLowerCase().startsWith('application/json')) return response('JSON required', 415);
+    if ((request.headers.get('Content-Type') ?? '').split(';')[0].trim().toLowerCase() !== 'application/json') return response('JSON required', 415);
     let body;
     try { body = await boundedJson(request); } catch { return response('Invalid or oversized request', 400); }
     if (!await authorized(body?.key, env.PLAY_KEY_HASH)) return response('Invalid play key', 403);
@@ -92,6 +92,12 @@ async function handle(request, env) {
   if (!await authorized(cookieKey(request), env.PLAY_KEY_HASH)) {
     if (url.pathname === '/' || url.pathname === '/index.html') return response(request.method === 'HEAD' ? null : UNLOCK, 200, { 'Content-Type': 'text/html; charset=utf-8' });
     return response(request.method === 'HEAD' ? null : 'Unlock the game first.', 401);
+  }
+  if (url.pathname === '/play-config.json') {
+    return response(request.method === 'HEAD' ? null : JSON.stringify({
+      startMap: 'Elwynn Forest',
+      allowedMaps: ["Gates of Ahn'Qiraj", 'Gurubashi Arena', 'Elwynn Forest', 'Westfall', 'Duskwood'],
+    }), 200, { 'Content-Type': 'application/json' });
   }
   const destination = route(url.pathname, env);
   if (!destination) return response(request.method === 'HEAD' ? null : 'Not found', 404);
@@ -109,7 +115,7 @@ async function handle(request, env) {
   }
   const outgoing = new Headers(SECURITY);
   outgoing.set('Content-Type', destination.type);
-  outgoing.set('Cache-Control', destination.html ? 'private, no-store' : 'private, max-age=86400');
+  outgoing.set('Cache-Control', destination.html ? 'private, no-store' : url.pathname.startsWith('/data/') ? 'private, max-age=86400' : 'private, max-age=0, must-revalidate');
   for (const name of ['Content-Length', 'Content-Encoding', 'ETag', 'Last-Modified', 'Accept-Ranges', 'Content-Range']) {
     const value = upstream.headers.get(name);
     if (value) outgoing.set(name, value);

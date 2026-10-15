@@ -73,12 +73,12 @@ test('authenticated HTML is pinned to the configured commit and never caches pri
   assert.equal(await result.text(), '<html>game</html>');
 });
 
-test('known static assets have browser MIME types and private one-day caches', async () => {
+test('known static assets have browser MIME types and revalidate across deployments', async () => {
   mockFetch(async () => new Response('asset', { headers: { 'Content-Type': 'text/plain' } }));
   for (const [path, type] of [ ['/mobile.js', 'text/javascript; charset=utf-8'], ['/mobile.css', 'text/css; charset=utf-8'], ['/manifest.webmanifest', 'application/manifest+json'], ['/boot-manifest.json', 'application/json'], ['/world-manifest.json', 'application/json'], ['/icon-180.png', 'image/png'] ]) {
     const result = await worker.fetch(authenticated(path), env);
     assert.equal(result.headers.get('Content-Type'), type);
-    assert.equal(result.headers.get('Cache-Control'), 'private, max-age=86400');
+    assert.equal(result.headers.get('Cache-Control'), 'private, max-age=0, must-revalidate');
   }
 });
 
@@ -151,4 +151,15 @@ test('upstream errors never leak upstream bodies or secrets', async () => {
   const thrown = await worker.fetch(authenticated('/wenilla.js'), env);
   assert.equal(thrown.status, 502);
   assert.ok(!(await thrown.text()).includes('sensitive'));
+});
+
+
+test('hosted terrain configuration is private and selects a supplied starting zone', async () => {
+  mockFetch(() => assert.fail('configuration must not contact upstream'));
+  assert.equal((await worker.fetch(request('/play-config.json'), env)).status, 401);
+  const r = await worker.fetch(authenticated('/play-config.json'), env);
+  const config = await r.json();
+  assert.equal(config.startMap, 'Elwynn Forest');
+  assert.ok(config.allowedMaps.includes(config.startMap));
+  assert.ok(!config.allowedMaps.includes('The Barrens'));
 });
