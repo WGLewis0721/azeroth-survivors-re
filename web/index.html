@@ -44,6 +44,16 @@
     }
   })();
 </script>
+<script>
+  // iPhone Safari has no element fullscreen API. winit falls back to the prefixed
+  // method when the standard method is absent; keep that fallback from throwing.
+  if (!Element.prototype.requestFullscreen && !Element.prototype.webkitRequestFullscreen) {
+    Element.prototype.webkitRequestFullscreen = function () {};
+    if (!Document.prototype.webkitExitFullscreen) {
+      Document.prototype.webkitExitFullscreen = function () {};
+    }
+  }
+</script>
 <script type="importmap">{"imports":{"wasi_snapshot_preview1":"./wasi_stubs.js"}}</script>
 <script>
   // WGSL compile errors are otherwise invisible: wgpu's browser backend never asks the module for
