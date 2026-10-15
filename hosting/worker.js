@@ -16,7 +16,7 @@ function response(body, status = 200, headers = {}) {
 }
 function validConfiguration(env) {
   return /^[a-f\d]{40}$/i.test(env.SOURCE_COMMIT ?? '') &&
-    /^[A-Za-z\d_.-]{1,128}$/.test(env.RELEASE_TAG ?? '') &&
+    (/^[a-f\d]{40}$/i.test(env.RUNTIME_COMMIT ?? '') || /^[A-Za-z\d_.-]{1,128}$/.test(env.RELEASE_TAG ?? '')) &&
     /^[a-f\d]{64}$/i.test(env.PLAY_KEY_HASH ?? '');
 }
 async function authorized(key, expected) {
@@ -64,7 +64,11 @@ function route(path, env) {
   if (ASSETS.has(name)) return { url: raw + name, type: ASSETS.get(name) };
   if (path === '/wenilla.js' || path === '/wenilla_bg.wasm') {
     const wasm = path.endsWith('.wasm');
-    return { url: `https://github.com/${REPOSITORY}/releases/download/${env.RELEASE_TAG}/${wasm ? 'wenilla_bg.wasm.gz' : 'wenilla.js'}`, type: wasm ? 'application/wasm' : 'text/javascript; charset=utf-8', gzip: wasm };
+    const file = wasm ? 'wenilla_bg.wasm.gz' : 'wenilla.js';
+    const url = /^[a-f\d]{40}$/i.test(env.RUNTIME_COMMIT ?? '')
+      ? `https://raw.githubusercontent.com/${REPOSITORY}/${env.RUNTIME_COMMIT}/${file}`
+      : `https://github.com/${REPOSITORY}/releases/download/${env.RELEASE_TAG}/${file}`;
+    return { url, type: wasm ? 'application/wasm' : 'text/javascript; charset=utf-8', gzip: wasm };
   }
   if (path.startsWith('/data/')) {
     let name;

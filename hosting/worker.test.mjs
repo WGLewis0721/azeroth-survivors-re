@@ -163,3 +163,15 @@ test('hosted terrain configuration is private and selects a supplied starting zo
   assert.ok(config.allowedMaps.includes(config.startMap));
   assert.ok(!config.allowedMaps.includes('The Barrens'));
 });
+
+
+test('runtime build branch is pinned to its own immutable commit', async () => {
+  const runtime = 'b'.repeat(40);
+  mockFetch(async (url) => {
+    assert.equal(url, `https://raw.githubusercontent.com/WGLewis0721/azeroth-survivors-re/${runtime}/wenilla.js`);
+    return new Response('runtime');
+  });
+  const r = await worker.fetch(authenticated('/wenilla.js'), { ...env, RELEASE_TAG: undefined, RUNTIME_COMMIT: runtime });
+  assert.equal(r.status, 200);
+  assert.equal(await r.text(), 'runtime');
+});

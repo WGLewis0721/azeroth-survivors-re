@@ -1,15 +1,16 @@
 # Private phone play gateway
 
 `worker.js` runs the mobile build behind a personal HTTPS link. It serves the page from a
-pinned commit, streams the matching compiled client from a GitHub release, and maps the
+pinned commit, streams the matching compiled client from an immutable build commit or GitHub release, and maps the
 client's `/data/<encoded WoW path>` requests to the original game's public static data host.
 The gateway does not store game data or expose a local `wenilla-host` server.
 
 Required Worker bindings:
 
 - `SOURCE_COMMIT`: full commit SHA in this repository containing the mobile page files.
-- `RELEASE_TAG`: release containing `wenilla.js` and `wenilla_bg.wasm.gz`, generated together
-  by the exact Cargo.lock-pinned wasm-bindgen version.
+- `RUNTIME_COMMIT`: full SHA of the separate `iphone-runtime` build branch containing
+  `wenilla.js` and `wenilla_bg.wasm.gz`, generated together by the Cargo.lock-pinned wasm-bindgen.
+  Alternatively, `RELEASE_TAG` can name a GitHub release with those same files.
 - `PLAY_KEY_HASH`: secret binding containing the SHA-256 hex digest of a random play key.
 
 The key must be 16–128 URL-safe characters. Generate it with a cryptographic random generator.
@@ -30,10 +31,10 @@ older-iOS renderer. Availability depends on the original data host and its reque
 this is a personal preview rather than an independent distribution of WoW data.
 
 To create runtime release files, use the existing `scripts/web-build.sh` and gzip the
-resulting `web/dist/wenilla_bg.wasm` into `wenilla_bg.wasm.gz`. Upload that file and
-`web/dist/wenilla.js` to the configured release. Deploy the module with today's compatibility
-date and the bindings above, then enable its workers.dev subdomain. Do not commit the WASM,
-game data or credentials. JavaScript/MIME types, gzip bytes and response streaming are
+resulting `web/dist/wenilla_bg.wasm` into `wenilla_bg.wasm.gz`. Publish that file and
+`web/dist/wenilla.js` on a separate runtime branch and pin its full commit SHA, or upload them
+to the configured release. Deploy the module with today's compatibility
+date and the bindings above, then enable its workers.dev subdomain. Keep compiled files off the source branch. Never commit game data or credentials. JavaScript/MIME types, gzip bytes and response streaming are
 handled by the gateway; browser data requests are cached privately while client files
 revalidate across deployments.
 
