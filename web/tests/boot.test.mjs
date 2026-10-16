@@ -15,7 +15,8 @@ const deferred = () => {
 function setup(t, fetch) {
   const children = new Map();
   const element = () => ({
-    style: {}, classList: { add() {} }, remove() {},
+    style: { setProperty() {} }, classList: { add() {} }, remove() {},
+    appendChild(node) { return node; },
     querySelector(selector) {
       if (!children.has(selector)) children.set(selector, element());
       return children.get(selector);
@@ -25,6 +26,7 @@ function setup(t, fetch) {
     fetch, location: { search: '' }, window: {},
     document: { createElement: element, body: { appendChild() {} } },
     setTimeout: () => 0, clearTimeout: () => {},
+    setInterval: () => 0, clearInterval: () => {},
   })) {
     const descriptor = Object.getOwnPropertyDescriptor(globalThis, key);
     Object.defineProperty(globalThis, key, { configurable: true, writable: true, value });
@@ -72,6 +74,32 @@ test('missing manifest degrades to ordinary startup', async t => {
   setup(t, async url => String(url).endsWith('boot-manifest.json') ? new Response('', { status: 404 }) :
     new Response(wasmBytes, { headers: { 'content-type': 'application/wasm' } }));
   assert.equal(await boot(async () => 'started'), 'started');
+});
+
+test('WebKit compiles from bytes instead of compileStreaming', async t => {
+  const previous = globalThis.navigator;
+  Object.defineProperty(globalThis, 'navigator', {
+    configurable: true,
+    value: { userAgent: 'Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1' },
+  });
+  t.after(() => {
+    if (previous === undefined) delete globalThis.navigator;
+    else Object.defineProperty(globalThis, 'navigator', { configurable: true, value: previous });
+  });
+  let streamed = false;
+  t.mock.method(WebAssembly, 'compileStreaming', async () => {
+    streamed = true;
+    throw new Error('Safari must not stream-compile a rebuilt wasm response');
+  });
+  setup(t, async url => String(url).endsWith('boot-manifest.json') ? new Response('{}') :
+    new Response(wasmBytes, {
+      headers: { 'content-type': 'application/wasm', 'content-encoding': 'br', 'content-length': '4' },
+    }));
+  assert.equal(await boot(async ({ module_or_path }) => {
+    assert.ok(module_or_path instanceof WebAssembly.Module);
+    return 'started';
+  }), 'started');
+  assert.equal(streamed, false);
 });
 
 test('invalid wasm reports compilation failure and never starts the client', async t => {

@@ -1,10 +1,16 @@
 <!doctype html>
 <meta charset="utf-8">
+<meta name="viewport" content="width=device-width, initial-scale=1, maximum-scale=1, user-scalable=no, viewport-fit=cover">
 <title>Azeroth Survivors</title>
 <link rel="icon" type="image/svg+xml" href="favicon.svg">
 <style>
-  html, body { margin: 0; padding: 0; height: 100%; overflow: hidden; background: #000; }
-  #benilla { display: block; width: 100vw; height: 100vh; }
+  /* `position: fixed` and `dvh` keep iOS from resizing the canvas every time the address bar
+     moves. A resize loop reconfigures the WebGPU surface until Safari kills the tab.
+     `100vw`/`100vh` without a viewport meta is a ~980px desktop layout, which at 3× becomes
+     a framebuffer the phone GPU rejects. */
+  html, body { margin: 0; padding: 0; height: 100%; height: 100dvh; overflow: hidden; background: #000;
+    position: fixed; inset: 0; width: 100%; }
+  #benilla { display: block; width: 100%; height: 100%; touch-action: none; }
 </style>
 <script>
   // Sound: the browser suspends any AudioContext created before the first user gesture (autoplay
@@ -69,6 +75,14 @@
   import init from './wenilla.js';
   import { bind } from './wasi_stubs.js';
   import { boot } from './boot.js';
+  import { capDevicePixelRatio, installPointerLockShim, phoneLike, phoneSessionEnv, showBlocked, webgpuBlockedReason } from './safari.js';
+  import { installTouchControls } from './touch.js';
+  // Before init(): pointer lock must not throw into wasm, and the canvas backing store has to
+  // be capped before winit reads devicePixelRatio. See safari.js.
+  installPointerLockShim();
+  if (phoneLike()) capDevicePixelRatio(2);
+  window.__wenilla_env = Object.assign(window.__wenilla_env || { dev_query_creds: '1' }, phoneSessionEnv());
+  installTouchControls();
   // `boot(init)` is the loading overlay + parallel data prefetch (see boot.js's header); it calls
   // `init()` with a byte-counted Response, and `init()` instantiates the wasm module, which runs
   // `#[wasm_bindgen(start)] start()` as part of instantiation (`wenilla/src/lib.rs`) — that's the
@@ -92,6 +106,10 @@
       }
     })
     .catch((e) => console.warn('bridge.js:', e));
-  const w = await boot(init);
-  bind(w.memory);
+  const blocked = webgpuBlockedReason();
+  if (blocked) showBlocked(blocked);
+  else {
+    const w = await boot(init);
+    bind(w.memory);
+  }
 </script>

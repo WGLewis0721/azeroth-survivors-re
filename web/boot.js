@@ -30,7 +30,22 @@
 // build and that is cosmetic — the bar is clamped at 99% until the stream actually ends.
 const BR_RATIO = 5.0;
 const READY_TIMEOUT_MS = 20000;
-const PREFETCH_CONCURRENCY = 8;
+
+// WebKit's compileStreaming crashes the tab on a Response rebuilt around a counting stream
+// (the body is already decoded; a copied Content-Encoding makes it decode again, and a large
+// streamed compile on iOS jetsams the process). Buffer and compile there. Everywhere else the
+// streamed compile stays, which is what the boot tests lock.
+function webKitWithoutBlink() {
+  const ua = (globalThis.navigator && navigator.userAgent) || '';
+  return /AppleWebKit/i.test(ua) && !/Chrome|Chromium/i.test(ua);
+}
+
+// Eight parallel archive bodies plus a wasm compile is a desktop-sized spike. Two at a time
+// is what an iPhone survives while the module is still compiling.
+function prefetchConcurrency() {
+  const ua = (globalThis.navigator && navigator.userAgent) || '';
+  return /iPhone|iPad|iPod/i.test(ua) ? 2 : 8;
+}
 
 export async function boot(init, opts = {}) {
   const q = new URLSearchParams(location.search);
@@ -73,8 +88,10 @@ export async function boot(init, opts = {}) {
 async function compileWasm(url, onBytes) {
   const response = await fetchWasm(url, onBytes);
   if (!response.ok) throw new Error(`Client download failed (HTTP ${response.status})`);
-  if (typeof WebAssembly.compileStreaming === 'function' &&
-      response.headers.get('content-type')?.trim().toLowerCase() === 'application/wasm') {
+  const type = response.headers.get('content-type')?.trim().toLowerCase();
+  if (!webKitWithoutBlink() &&
+      typeof WebAssembly.compileStreaming === 'function' &&
+      type === 'application/wasm') {
     return WebAssembly.compileStreaming(response);
   }
   return WebAssembly.compile(await response.arrayBuffer());
@@ -106,9 +123,13 @@ async function fetchWasm(url, onBytes) {
       return reader.cancel(reason);
     },
   });
-  // Headers are copied so Content-Type: application/wasm survives — compileStreaming
-  // refuses anything else.
-  return new Response(counted, { status: r.status, statusText: r.statusText, headers: r.headers });
+  // Content-Type must survive — compileStreaming refuses anything else. Content-Encoding
+  // and Content-Length must not: fetch() already decoded the body, and Safari decodes a
+  // second time (or aborts the tab) when those headers are copied onto the new stream.
+  const headers = new Headers(r.headers);
+  headers.delete('content-encoding');
+  headers.delete('content-length');
+  return new Response(counted, { status: r.status, statusText: r.statusText, headers });
 }
 
 /// Warm the HTTP cache with a manifest's read-set: fetch the manifest, then a fixed-size pool of
@@ -138,7 +159,7 @@ async function prefetchManifest(manifestUrl, onProgress) {
       onProgress(done, names.length);
     }
   }
-  await Promise.all(Array.from({ length: PREFETCH_CONCURRENCY }, worker));
+  await Promise.all(Array.from({ length: prefetchConcurrency() }, worker));
 }
 
 /// `window.__wenilla_progress(stage)` — the client's calls land here (webprogress.rs).

@@ -27,6 +27,12 @@ percent-encoding = "2.3"
 serde_json = "1"
 tracing = "0.1"
 tracing-subscriber = "0.3"
+# HTTPS for a phone on the same Wi-Fi. Safari only exposes WebGPU in a secure context, and a
+# handset cannot open this machine's localhost, so `make start` serves a generated certificate
+# beside the loopback HTTP port. axum 0.8's own example uses this crate for that.
+axum-server = { version = "0.7", features = ["tls-rustls"] }
+rcgen = "0.13"
+rustls = { version = "0.23", default-features = false, features = ["ring", "std", "tls12"] }
 
 [dev-dependencies]
 # Only the WebSocket proxy test needs a client library (framing is fiddly to hand-roll); the
@@ -35,3 +41,7 @@ tokio-tungstenite = "0.30"
 # `ServiceExt::oneshot`, so `data`'s compression predicate can be exercised as a router without
 # a socket or a 5 GB game install behind it — the feature the non-dev `tower` dep doesn't need.
 tower = { version = "0.5", features = ["util"] }
+# Reads the generated certificate back in tests to assert the IP SAN iOS requires.
+x509-parser = "0.16"
+tokio-rustls = { version = "0.26", default-features = false, features = ["ring", "tls12"] }
+rustls-pemfile = "2"

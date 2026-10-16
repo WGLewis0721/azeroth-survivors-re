@@ -53,8 +53,14 @@ minutes. **No server, no login, no account** — fully offline and self-containe
 git clone https://github.com/OutThisLife/azeroth-survivors-re
 cd azeroth-survivors-re
 make build     # fetch game data + install toolchain + build the wasm (~5.5 GB download)
-make start     # → open http://127.0.0.1:8090/
+make start     # this computer: http://127.0.0.1:8090/
 ```
+
+On an iPhone, `localhost` is the phone, and Safari will not enable WebGPU on a plain
+`http://` Wi-Fi address — the page loads and then the tab dies. `make start` also listens on
+the computer's Wi-Fi address over HTTPS and prints that URL. Join the same Wi-Fi, open it,
+and the first time tap **Advanced → visit this website**. A stick, Jump, and Spell stand in
+for WASD and F. The phone needs Safari 26 or newer.
 
 `make build` chains three re-runnable scripts, each skipping what's already done:
 

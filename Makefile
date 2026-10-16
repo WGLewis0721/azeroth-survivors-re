@@ -21,9 +21,9 @@ wasm: ## Build the browser client into web/dist/
 
 build: fetch-data toolchain wasm ## Fetch data + install toolchain + build the wasm
 
-start: ## Serve the game at http://127.0.0.1:8090 (run `make build` first)
+start: ## Serve the game. This computer: http://127.0.0.1:8090 — iPhone: the https URL printed at startup
 	@test -f $(WASM) || { echo "  not built yet — run: make build"; exit 1; }
-	cargo run --release -p wenilla-host -- --www web/dist --data $(DATA)
+	cargo run --release -p wenilla-host -- --www web/dist --data $(DATA) --bind 0.0.0.0:8090 --tls-port 8443
 
 native: fetch-data ## Build + run the native desktop version
 	WOW_DATA=$(DATA) cargo run --release -p warcraft-survivors

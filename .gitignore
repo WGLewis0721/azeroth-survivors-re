@@ -35,6 +35,10 @@
 # otherwise leaves the checkout "dirty".
 trace-*.json
 
+# Self-signed cert `wenilla-host --tls-port` writes so an iPhone can reopen the
+# same https origin without a new warning every launch.
+/.wenilla-tls/
+
 # OS / editor cruft
 .DS_Store
 *.swp

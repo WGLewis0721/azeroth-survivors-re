@@ -15,6 +15,12 @@ use tower_http::services::ServeDir;
 use tower_http::set_header::SetResponseHeaderLayer;
 
 pub fn router(www: &Path) -> axum::Router {
+    // Outside the header layers, so it sees them already applied and can take them off.
+    // `Router::layer` covers the fallback that actually serves the files.
+    inner(www).layer(axum::middleware::from_fn(drop_isolation_on_webkit))
+}
+
+fn inner(www: &Path) -> axum::Router {
     let no_cache = HeaderValue::from_static("no-cache");
     // Precompressed, not compressed on the fly: the wasm is ~90 MB, and brotli-ing that per
     // request is seconds of CPU for every page load. `scripts/web-build.sh` writes the
@@ -58,4 +64,49 @@ pub fn router(www: &Path) -> axum::Router {
             ))
             .service(serve),
     )
+}
+
+/// iOS Safari (and iOS Chrome, which is WebKit) kills the tab once a cross-origin-isolated
+/// document instantiates this client's wasm and asks for a WebGPU device. Nothing here uses
+/// `SharedArrayBuffer` yet — the headers are groundwork — so a WebKit page can play without
+/// them. Desktop Chromium keeps the pair; the integration test locks that split.
+async fn drop_isolation_on_webkit(
+    request: axum::extract::Request,
+    next: axum::middleware::Next,
+) -> axum::response::Response {
+    let webkit = request
+        .headers()
+        .get(axum::http::header::USER_AGENT)
+        .and_then(|v| v.to_str().ok())
+        .is_some_and(apple_webkit_without_blink);
+    let mut response = next.run(request).await;
+    if webkit {
+        let headers = response.headers_mut();
+        headers.remove("cross-origin-opener-policy");
+        headers.remove("cross-origin-embedder-policy");
+    }
+    response
+}
+
+/// WebKit, including CriOS and EdgiOS, which do not spell "Chrome". Blink UAs do, and they keep
+/// isolation.
+fn apple_webkit_without_blink(ua: &str) -> bool {
+    let ua = ua.to_ascii_lowercase();
+    ua.contains("applewebkit") && !ua.contains("chrome") && !ua.contains("chromium")
+}
+
+#[cfg(test)]
+mod tests {
+    use super::apple_webkit_without_blink;
+
+    #[test]
+    fn iphone_safari_and_crios_drop_isolation_and_desktop_chrome_does_not() {
+        let safari = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) Version/18.6 Mobile/15E148 Safari/604.1";
+        let crios = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 (KHTML, like Gecko) CriOS/128.0.6613.98 Mobile/15E148 Safari/604.1";
+        let chrome = "Mozilla/5.0 (Macintosh; Intel Mac OS X 10_15_7) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/120.0.0.0 Safari/537.36";
+        assert!(apple_webkit_without_blink(safari));
+        assert!(apple_webkit_without_blink(crios));
+        assert!(!apple_webkit_without_blink(chrome));
+        assert!(!apple_webkit_without_blink(""));
+    }
 }
