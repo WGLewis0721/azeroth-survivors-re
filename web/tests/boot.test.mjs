@@ -94,7 +94,8 @@ test('gzip parts compile one at a time and are handed to init before start', asy
   setup(t, async url => {
     const name = String(url);
     if (name.endsWith('boot-manifest.json')) return new Response('{}');
-    if (name.includes('/snippets/wenilla-s')) return new Response(gz);
+    if (name.includes('/snippets/wenilla-03/')) return new Response('', { status: 404 });
+    if (name.includes('/snippets/wenilla-')) return new Response(gz);
     return new Response(wasm, { headers: { 'content-type': 'application/octet-stream' } });
   });
   assert.equal(await boot(async ({ module_or_path }) => {

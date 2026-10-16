@@ -41,15 +41,9 @@ export async function boot(init, opts = {}) {
 }
 
 
-const SPLIT_PARTS = [
-  './snippets/wenilla-s0/inline0.js',
-  './snippets/wenilla-s1/inline0.js',
-  './snippets/wenilla-s2/inline0.js',
-];
-
-// Each part is gzip, compiled alone, then linked before start. The Worker already
-// serves /snippets/*/inline0.js from the runtime commit, so this needs no new route.
-// Anything that is not gzip is a normal single-module build.
+// Parts are gzip, compiled one at a time, then linked before start. The Worker
+// already serves /snippets/*/inline0.js from the runtime commit. A 404 on part
+// 0, or a body that is not gzip, is a normal single-module build.
 async function loadClientModule(onBytes, mobile) {
   globalThis.__wenilla_secondaries = await compileSplitParts(onBytes);
   const url = new URL('./wenilla_bg.wasm', import.meta.url);
@@ -57,18 +51,15 @@ async function loadClientModule(onBytes, mobile) {
 }
 
 async function compileSplitParts(onBytes) {
-  const first = await fetch(new URL(SPLIT_PARTS[0], import.meta.url));
-  if (!first.ok) return undefined;
-  const firstBuf = await first.arrayBuffer();
-  if (!isGzip(firstBuf)) return undefined;
   const modules = [];
-  let bytes = await gunzip(firstBuf);
-  onBytes(bytes.byteLength, bytes.byteLength);
-  modules.push(await WebAssembly.compile(bytes));
-  for (const name of SPLIT_PARTS.slice(1)) {
+  for (let i = 0; i < 64; i++) {
+    const name = `./snippets/wenilla-${String(i).padStart(2, '0')}/inline0.js`;
     const response = await fetch(new URL(name, import.meta.url));
+    if (response.status === 404) return i === 0 ? undefined : modules;
     if (!response.ok) throw new Error(`Client part failed (HTTP ${response.status})`);
-    bytes = await gunzip(await response.arrayBuffer());
+    const buf = await response.arrayBuffer();
+    if (i === 0 && !isGzip(buf)) return undefined;
+    const bytes = await gunzip(buf);
     onBytes(bytes.byteLength, bytes.byteLength);
     modules.push(await WebAssembly.compile(bytes));
   }
