@@ -41,29 +41,46 @@ export async function boot(init, opts = {}) {
 }
 
 
-// Parts are gzip, compiled one at a time, then linked before start. The Worker
-// already serves /snippets/*/inline0.js from the runtime commit. A 404 on part
-// 0, or a body that is not gzip, is a normal single-module build.
+// Parts are gzip. Compile the small primary module first, then compile and
+// instantiate one part at a time inside the runtime glue. Holding every part
+// compiled at once is what was still killing iOS.
 async function loadClientModule(onBytes, mobile) {
-  globalThis.__wenilla_secondaries = await compileSplitParts(onBytes);
+  await prepareSplit(onBytes);
   const url = new URL('./wenilla_bg.wasm', import.meta.url);
   return mobile ? compileWasmPlain(url, onBytes) : compileWasm(url, onBytes);
 }
 
-async function compileSplitParts(onBytes) {
-  const modules = [];
-  for (let i = 0; i < 64; i++) {
-    const name = `./snippets/wenilla-${String(i).padStart(2, '0')}/inline0.js`;
-    const response = await fetch(new URL(name, import.meta.url));
-    if (response.status === 404) return i === 0 ? undefined : modules;
-    if (!response.ok) throw new Error(`Client part failed (HTTP ${response.status})`);
-    const buf = await response.arrayBuffer();
-    if (i === 0 && !isGzip(buf)) return undefined;
+async function prepareSplit(onBytes) {
+  const firstUrl = new URL('./snippets/wenilla-00/inline0.js', import.meta.url);
+  const response = await fetch(firstUrl);
+  if (response.status === 404) {
+    globalThis.__wenilla_load_part = undefined;
+    globalThis.__wenilla_secondaries = undefined;
+    return;
+  }
+  if (!response.ok) throw new Error(`Client part failed (HTTP ${response.status})`);
+  const firstBuf = await response.arrayBuffer();
+  if (!isGzip(firstBuf)) {
+    globalThis.__wenilla_load_part = undefined;
+    globalThis.__wenilla_secondaries = undefined;
+    return;
+  }
+  let cached = firstBuf;
+  globalThis.__wenilla_secondaries = undefined;
+  globalThis.__wenilla_load_part = async (i) => {
+    let buf = cached;
+    cached = null;
+    if (i !== 0) {
+      const name = `./snippets/wenilla-${String(i).padStart(2, '0')}/inline0.js`;
+      const part = await fetch(new URL(name, import.meta.url));
+      if (part.status === 404) return null;
+      if (!part.ok) throw new Error(`Client part failed (HTTP ${part.status})`);
+      buf = await part.arrayBuffer();
+    }
     const bytes = await gunzip(buf);
     onBytes(bytes.byteLength, bytes.byteLength);
-    modules.push(await WebAssembly.compile(bytes));
-  }
-  return modules;
+    return WebAssembly.compile(bytes);
+  };
 }
 
 function isGzip(buf) {

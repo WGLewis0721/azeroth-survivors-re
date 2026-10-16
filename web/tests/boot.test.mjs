@@ -100,7 +100,13 @@ test('gzip parts compile one at a time and are handed to init before start', asy
   });
   assert.equal(await boot(async ({ module_or_path }) => {
     assert.ok(module_or_path instanceof WebAssembly.Module);
-    assert.equal(globalThis.__wenilla_secondaries.length, 3);
+    let count = 0;
+    for (let i = 0; ; i++) {
+      const part = await globalThis.__wenilla_load_part(i);
+      if (!part) break;
+      count++;
+    }
+    assert.equal(count, 3);
     return 'linked';
   }), 'linked');
   assert.deepEqual(compiled, [8, 8, 8, 8]);
