@@ -3951,11 +3951,18 @@ async function __wbg_init(module_or_path) {
 
     const { instance, module } = await __wbg_load(await module_or_path, imports);
 
-    // Parts were compiled one at a time. Link them before start, or iOS Safari
-    // compiles one ~60 MB module and the tab is killed.
-    const parts = globalThis.__wenilla_secondaries || [];
-    for (const part of parts) {
-        await WebAssembly.instantiate(part, { primary: instance.exports });
+    const loadPart = globalThis.__wenilla_load_part;
+    if (typeof loadPart === 'function') {
+        for (let i = 0; ; i++) {
+            const part = await loadPart(i);
+            if (!part) break;
+            await WebAssembly.instantiate(part, { primary: instance.exports });
+        }
+    } else {
+        const parts = globalThis.__wenilla_secondaries || [];
+        for (const part of parts) {
+            await WebAssembly.instantiate(part, { primary: instance.exports });
+        }
     }
 
     return __wbg_finalize_init(instance, module);
