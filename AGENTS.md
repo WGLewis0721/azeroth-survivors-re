@@ -99,3 +99,17 @@ google-chrome --user-data-dir=/tmp/wenilla-chrome --enable-unsafe-webgpu --remot
 | the world freezes ~200 ms at zone lines | the soundscape carry (`sound/zone.rs`, `sound/web_load.rs`), wasm-only |
 | short stalls in the browser on the first play of a sound (combat, a new creature, footsteps on new ground) | the SFX carry (`sound/kit/deferred.rs`, the glue and cinematic arms of `sound/glue.rs`/`sound/cinematic.rs`), wasm-only |
 | the prod image is not what `main` says | wenilla-realm/docs/RELEASE.md, "When it breaks" |
+
+## Cursor Cloud specific instructions
+
+The Cloud Agent image install is `scripts/web-setup.sh` (wasm32 target, wasm-bindgen at the `Cargo.lock` pin, wasi-sdk, binaryen) plus the Linux packages `pkg-config`, `libasound2-dev`, `libudev-dev`, `libwayland-dev`, `libxkbcommon-dev`, and the `brotli` CLI. Rust is the toolchain in `rust-toolchain.toml`. Nothing is started on boot.
+
+`wenilla-host` is the local server (`127.0.0.1:8090`). It is not started for you: it needs `web/dist` from `scripts/web-build.sh` and a WoW 1.12.1 `Data` directory. `scripts/fetch-data.sh` downloads that client (about 5.5 GB) and is not part of the image. Without it, `cargo test -p wenilla-host --test data` skips. This repository has no `wenilla-realm` crate.
+
+Checks that do not need game data: `cargo test -p wenilla-host` (the `/data` integration tests skip), `node --test web/tests/journal.test.mjs`, and
+
+```bash
+cargo check --target wasm32-unknown-unknown -p wenilla --no-default-features --features webgpu
+```
+
+`web/tests/boot.test.mjs` fails on this tree: its DOM stand-in does not implement `style.setProperty`. Chrome on Linux needs `--enable-unsafe-webgpu` before the world will render.
