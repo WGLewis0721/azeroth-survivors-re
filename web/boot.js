@@ -7,7 +7,7 @@ const READY_TIMEOUT_MS = 20000;
 const PREFETCH_CONCURRENCY = 8;
 
 const isMobile = () =>
-  matchMedia('(pointer: coarse)').matches ||
+  (typeof matchMedia === 'function' && matchMedia('(pointer: coarse)').matches) ||
   /iPhone|iPad|iPod/.test(navigator.userAgent) ||
   new URLSearchParams(location.search).get('mobile') === '1';
 
@@ -26,13 +26,7 @@ export async function boot(init, opts = {}) {
         () => ui.setData(0, 0)
       );
 
-  const wasm = mobile
-    ? compileWasmPlain(new URL('./wenilla_bg.wasm', import.meta.url), (got, total) =>
-        ui.setWasmProgress(got, total)
-      )
-    : compileWasm(new URL('./wenilla_bg.wasm', import.meta.url), (got, total) =>
-        ui.setWasmProgress(got, total)
-      );
+  const wasm = loadClientModule((got, total) => ui.setWasmProgress(got, total), mobile);
   let w;
   try {
     const [module] = await Promise.all([wasm, prefetch]);
@@ -44,6 +38,51 @@ export async function boot(init, opts = {}) {
   ui.setStage('Starting…');
   ui.armTimeout(opts.readyTimeoutMs ?? READY_TIMEOUT_MS);
   return w;
+}
+
+
+const SPLIT_PARTS = [
+  './snippets/wenilla-s0/inline0.js',
+  './snippets/wenilla-s1/inline0.js',
+  './snippets/wenilla-s2/inline0.js',
+];
+
+// Each part is gzip, compiled alone, then linked before start. The Worker already
+// serves /snippets/*/inline0.js from the runtime commit, so this needs no new route.
+// Anything that is not gzip is a normal single-module build.
+async function loadClientModule(onBytes, mobile) {
+  globalThis.__wenilla_secondaries = await compileSplitParts(onBytes);
+  const url = new URL('./wenilla_bg.wasm', import.meta.url);
+  return mobile ? compileWasmPlain(url, onBytes) : compileWasm(url, onBytes);
+}
+
+async function compileSplitParts(onBytes) {
+  const first = await fetch(new URL(SPLIT_PARTS[0], import.meta.url));
+  if (!first.ok) return undefined;
+  const firstBuf = await first.arrayBuffer();
+  if (!isGzip(firstBuf)) return undefined;
+  const modules = [];
+  let bytes = await gunzip(firstBuf);
+  onBytes(bytes.byteLength, bytes.byteLength);
+  modules.push(await WebAssembly.compile(bytes));
+  for (const name of SPLIT_PARTS.slice(1)) {
+    const response = await fetch(new URL(name, import.meta.url));
+    if (!response.ok) throw new Error(`Client part failed (HTTP ${response.status})`);
+    bytes = await gunzip(await response.arrayBuffer());
+    onBytes(bytes.byteLength, bytes.byteLength);
+    modules.push(await WebAssembly.compile(bytes));
+  }
+  return modules;
+}
+
+function isGzip(buf) {
+  const bytes = new Uint8Array(buf);
+  return bytes.length > 2 && bytes[0] === 0x1f && bytes[1] === 0x8b;
+}
+
+async function gunzip(buf) {
+  const stream = new Blob([buf]).stream().pipeThrough(new DecompressionStream('gzip'));
+  return new Response(stream).arrayBuffer();
 }
 
 // Mobile path: download fully, then compile. Avoids the counting-stream + compileStreaming

@@ -81,3 +81,26 @@ test('invalid wasm reports compilation failure and never starts the client', asy
   await assert.rejects(boot(() => assert.fail('must not initialize')), WebAssembly.CompileError);
   assert.match(children.get('.stage').textContent, /client failed to start/);
 });
+
+test('gzip parts compile one at a time and are handed to init before start', async t => {
+  const wasm = new Uint8Array([0, 97, 115, 109, 1, 0, 0, 0]);
+  const gz = await new Response(new Blob([wasm]).stream().pipeThrough(new CompressionStream('gzip'))).arrayBuffer();
+  const compiled = [];
+  const original = WebAssembly.compile;
+  t.mock.method(WebAssembly, 'compile', async buf => {
+    compiled.push(buf.byteLength);
+    return original.call(WebAssembly, buf);
+  });
+  setup(t, async url => {
+    const name = String(url);
+    if (name.endsWith('boot-manifest.json')) return new Response('{}');
+    if (name.includes('/snippets/wenilla-s')) return new Response(gz);
+    return new Response(wasm, { headers: { 'content-type': 'application/octet-stream' } });
+  });
+  assert.equal(await boot(async ({ module_or_path }) => {
+    assert.ok(module_or_path instanceof WebAssembly.Module);
+    assert.equal(globalThis.__wenilla_secondaries.length, 3);
+    return 'linked';
+  }), 'linked');
+  assert.deepEqual(compiled, [8, 8, 8, 8]);
+});
