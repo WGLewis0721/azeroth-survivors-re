@@ -10,12 +10,14 @@ use tokio::net::TcpStream;
 /// `std::net` for the same reason `tests/data.rs` gives: the server under test is a
 /// `tokio::spawn`ed task on this test's own current-thread runtime, and a blocking read here
 /// would starve it of the only thread it has.
-async fn head_block(addr: std::net::SocketAddr, path: &str) -> (u16, String) {
+async fn head_block(addr: std::net::SocketAddr, path: &str, user_agent: &str) -> (u16, String) {
     let mut stream = TcpStream::connect(addr).await.expect("connect");
     stream
         .write_all(
-            format!("GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nConnection: close\r\n\r\n")
-                .as_bytes(),
+            format!(
+                "GET {path} HTTP/1.1\r\nHost: 127.0.0.1\r\nUser-Agent: {user_agent}\r\nConnection: close\r\n\r\n"
+            )
+            .as_bytes(),
         )
         .await
         .expect("write request");
@@ -51,7 +53,7 @@ async fn serves_the_client_cross_origin_isolated() {
     let addr = listener.local_addr().expect("local addr");
     tokio::spawn(async move { axum::serve(listener, app).await.unwrap() });
 
-    let (status, head) = head_block(addr, "/index.html").await;
+    let (status, head) = head_block(addr, "/index.html", "Mozilla/5.0 Chrome/120.0.0.0").await;
     assert_eq!(status, 200);
 
     // Both, and both with these exact values: `SharedArrayBuffer` is gated on the *pair*, so
@@ -69,6 +71,18 @@ async fn serves_the_client_cross_origin_isolated() {
     assert!(
         head.contains("cache-control: no-cache"),
         "missing no-cache:\n{head}"
+    );
+
+    let iphone = "Mozilla/5.0 (iPhone; CPU iPhone OS 18_6 like Mac OS X) AppleWebKit/605.1.15 Version/18.6 Mobile/15E148 Safari/604.1";
+    let (status, head) = head_block(addr, "/index.html", iphone).await;
+    assert_eq!(status, 200);
+    assert!(
+        !head.contains("cross-origin-opener-policy"),
+        "iPhone Safari crashes a cross-origin-isolated page after the wasm loads:\n{head}"
+    );
+    assert!(
+        !head.contains("cross-origin-embedder-policy"),
+        "iPhone Safari crashes a cross-origin-isolated page after the wasm loads:\n{head}"
     );
 
     std::fs::remove_dir_all(&www).ok();

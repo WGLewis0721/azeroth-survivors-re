@@ -17,8 +17,13 @@ behind a seam the native build already had:
 - **WebGPU** for the world (the shared light blob and the skin palettes are storage buffers,
   which WebGL2 has none of). Chrome/Edge on Windows and macOS, Safari 26+, Firefox 141+;
   Chrome on Linux behind `chrome://flags/#enable-unsafe-webgpu`. WebGPU also needs a secure
-  context — `localhost`, or https. A WebGL2 build exists (`WEB_BACKEND=webgl2`) and reaches
-  the glue screens only.
+  context — `localhost`, or https. A phone cannot open this computer's localhost, and
+  `http://<lan-ip>` is not a secure context, so Safari loads the page and then crashes when
+  the client asks for a device. `make start` prints an `https://` URL on the Wi-Fi address
+  for that (`wenilla-host --tls-port`). iPhone Safari also kills a cross-origin-isolated
+  document and a canvas sized from the desktop layout viewport; the host drops COOP/COEP for
+  WebKit, and `web/safari.js` caps the framebuffer and stubs pointer lock. A WebGL2 build
+  exists (`WEB_BACKEND=webgl2`) and reaches the glue screens only.
 - On the build machine: stable Rust, `rustup`, ~10 GB of `target/`; `scripts/web-setup.sh`
   fetches the rest (the `wasm32-unknown-unknown` target, `wasm-bindgen-cli` at the exact
   version `Cargo.lock` pins, wasi-sdk into `tools/wasi-sdk/`). No sudo.

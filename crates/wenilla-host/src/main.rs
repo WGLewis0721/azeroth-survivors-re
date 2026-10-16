@@ -9,6 +9,7 @@
 //! never be exposed on the open internet. Multi-user hosting is `wenilla-realm`, which mounts the
 //! same routers behind a session cookie.
 
+use std::net::SocketAddr;
 use std::path::PathBuf;
 use std::sync::Arc;
 
@@ -41,6 +42,17 @@ struct Cli {
     /// itself runs against, so it defaults to loopback.
     #[arg(long, default_value = "127.0.0.1")]
     upstream: String,
+    /// Also serve HTTPS on this port, with a certificate generated for this machine.
+    ///
+    /// iPhone Safari enables WebGPU only in a secure context. A phone cannot open this
+    /// computer's localhost, and `http://<lan-ip>` loads the page and then crashes when the
+    /// client asks for a GPU. Pair it with `--bind 0.0.0.0:8090`. Safari warns once
+    /// (Advanced → visit this website).
+    #[arg(long)]
+    tls_port: Option<u16>,
+    /// Where the generated certificate is kept so the phone's exception survives a restart.
+    #[arg(long, default_value = ".wenilla-tls")]
+    tls_dir: PathBuf,
 }
 
 #[tokio::main]
@@ -62,7 +74,11 @@ async fn main() -> Result<()> {
         ))
         .merge(wenilla_host::static_site::router(&cli.www));
 
-    let listener = tokio::net::TcpListener::bind(&cli.bind)
+    let http_addr: SocketAddr = cli
+        .bind
+        .parse()
+        .with_context(|| format!("parsing --bind {}", cli.bind))?;
+    let listener = tokio::net::TcpListener::bind(http_addr)
         .await
         .with_context(|| format!("binding {}", cli.bind))?;
     if !binds_loopback(&listener) {
@@ -72,6 +88,40 @@ async fn main() -> Result<()> {
              can reach this address, with no login. Do not expose it on the open internet — use \
              wenilla-realm to host players."
         );
+    }
+    let http_port = listener
+        .local_addr()
+        .map(|a| a.port())
+        .unwrap_or(http_addr.port());
+    tracing::info!("this computer: http://127.0.0.1:{http_port}/");
+    if let Some(tls_port) = cli.tls_port {
+        if tls_port == http_port {
+            anyhow::bail!("--tls-port {tls_port} is the same as the HTTP port");
+        }
+        let ips = wenilla_host::tls::listen_ips();
+        let cert = wenilla_host::tls::load_or_create(&cli.tls_dir, &["localhost"], &ips)?;
+        let config = wenilla_host::tls::rustls_config(&cert).await?;
+        let https_addr = SocketAddr::new(http_addr.ip(), tls_port);
+        let https = app.clone();
+        tokio::spawn(async move {
+            if let Err(e) = axum_server::bind_rustls(https_addr, config)
+                .serve(https.into_make_service())
+                .await
+            {
+                tracing::error!("https: {e:#}");
+            }
+        });
+        let phones: Vec<_> = ips.into_iter().filter(|ip| !ip.is_loopback()).collect();
+        if phones.is_empty() {
+            tracing::warn!(
+                "no Wi-Fi address found — a phone cannot open this host until this computer is on a network"
+            );
+        }
+        for ip in phones {
+            tracing::info!(
+                "iPhone (same Wi-Fi): https://{ip}:{tls_port}/  — Safari warns once: tap Advanced, then visit this website"
+            );
+        }
     }
     tracing::info!(bind = %cli.bind, www = %cli.www.display(), upstream = %cli.upstream, "wenilla-host listening");
     axum::serve(listener, app).await.context("serving")

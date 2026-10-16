@@ -5,6 +5,7 @@
 
 pub mod data;
 pub mod static_site;
+pub mod tls;
 pub mod ws;
 
 /// The only two ports the `/ws/{port}` proxy will ever dial — mangos realmd (login) and worldd
